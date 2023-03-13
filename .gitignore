@@ -1,0 +1,13 @@
+*.png
+*.apng
+*.jpg
+*.jpeg
+*.svg
+*.jpm
+*.bmp
+*.jpx
+*.jp2
+*.webp
+
+*.enc
+*.json
