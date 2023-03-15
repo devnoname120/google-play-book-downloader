@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "pdf-add-toc"
+version = "0.1"
+description = "Add the toc to the generated PDF"
+authors = ["devnoname120"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pikepdf = "^7.1.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
