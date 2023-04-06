@@ -100,7 +100,7 @@ for (let [i, page] of manifest.page.entries()) {
     await sleep(GOOGLE_PAGE_DOWNLOAD_PACER); // Be gentle with Google Play Books
 }
 
-fs.writeFile('pages.txt', `"${page_files.join('" "')}"`);
+fs.writeFile('pages.txt', page_files.join('\n'));
 
 
 info(`Finished. The pages that got successfully downloaded can be found in "${book_dir}".`);
