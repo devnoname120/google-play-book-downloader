@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 import re
+import html
 
 import click
 from pikepdf import Pdf, OutlineItem
@@ -120,12 +121,13 @@ def add_toc(book_base_path, pdf):
 
         for toc_item in toc:
             label, depth, page_index = itemgetter('label', 'depth', 'page_index')(toc_item)
+            label = html.unescape(label)
 
             parent = pdf_outline.root
             for _ in range(depth):
                 parent = parent[-1].children
 
-            outline_item = OutlineItem(label, page_index)
+            outline_item = OutlineItem(html.unescape(label), page_index)
             parent.append(outline_item)
 
 

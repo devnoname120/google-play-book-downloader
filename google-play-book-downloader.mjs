@@ -49,7 +49,7 @@ if (toc) {
     try {
         const human_toc = toc.map(t => {
             const indent = '    '.repeat(t.depth);
-            const label = `${indent}${t.label} ........`.padEnd(80, '.');
+            const label = `${indent}${unescape_html(t.label)} ........`.padEnd(80, '.');
             return `${label} p.${t.page_index+1}`;
         }).join('\n');
         await fs.writeFile('toc.txt', human_toc);
@@ -254,4 +254,10 @@ function mime_to_ext(mime) {
 
     warn(`Unknown image mime: ${mime}`);
     return 'unk';
+}
+
+function unescape_html(str) {
+  return str.replace(/&#(\d+);/g, (match, code) => {
+    return String.fromCharCode(code);
+  });
 }
