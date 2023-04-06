@@ -54,8 +54,8 @@ if (toc) {
         }).join('\n');
         await fs.writeFile('toc.txt', human_toc);
         success("Wrote human-readable table of contents to toc.txt");
-    } catch (err) {
-        warn(`Warning: Couldn't produce a human-readable table of contents:\n${err.message}\n${err.stack}`);
+    } catch (e) {
+        warn(`Warning: Couldn't produce a human-readable table of contents:\n${e.message}\n${e.stack}`);
     }
 
 }
@@ -93,8 +93,8 @@ for (let [i, page] of manifest.page.entries()) {
         page_files.push(filename);
 
         log(`[${p}] Saved to ${filename} (url: ${src})`);
-    } catch (err) {
-        err(`[${p}] Error! Download or decrypt failed (url: ${src}) failed with ${err.message}\n${err.stack}`);
+    } catch (e) {
+        err(`[${p}] Error! Download or decrypt failed (url: ${src}) failed with ${e.message}\n${e.stack}`);
     }
 
     await sleep(GOOGLE_PAGE_DOWNLOAD_PACER); // Be gentle with Google Play Books
