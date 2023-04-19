@@ -18,6 +18,9 @@ const FETCH_OPTIONS = {};
 
 info(`Script started`);
 
+// Remove all the properties except `headers` from the `FETCH_OPTIONS` object. Unnecessary additional properties such as `body`, `method`, etc. break the calls to `fetch()`.
+fix_fetch_options();
+
 const book_dir = `books/${BOOK_ID}`;
 
 await $`mkdir -p ${book_dir}`;
@@ -261,4 +264,11 @@ function unescape_html(str) {
   return str.replace(/&#(\d+);/g, (match, code) => {
     return String.fromCharCode(code);
   });
+}
+
+function fix_fetch_options() {
+  for (const propKey of Object.keys(FETCH_OPTIONS)) {
+    if (propKey !== 'headers')
+      delete FETCH_OPTIONS[propKey];
+  }
 }
