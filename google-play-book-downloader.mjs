@@ -153,6 +153,14 @@ async function decrypt(buf) {
   const iv = bytearray.subarray(0, 16);
   const data = bytearray.subarray(16);
 
+  // Use the builtin crypto module if enabled (external crypto module is deprecated)
+  let crypto;
+  try {
+    crypto = await import('node:crypto');
+  } catch (err) {
+    console.error('crypto support is disabled!');
+  } 
+  
   const key = await crypto.subtle.importKey("raw", aes_key, {
     name: "AES-CBC"
   }, true, ["decrypt", "encrypt"]);
