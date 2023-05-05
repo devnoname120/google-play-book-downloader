@@ -153,6 +153,14 @@ async function decrypt(buf) {
   const iv = bytearray.subarray(0, 16);
   const data = bytearray.subarray(16);
 
+  // Use the builtin crypto module if enabled (external crypto module is deprecated)
+  let crypto;
+  try {
+    crypto = await import('node:crypto');
+  } catch (err) {
+    console.error('crypto support is disabled!');
+  } 
+  
   const key = await crypto.subtle.importKey("raw", aes_key, {
     name: "AES-CBC"
   }, true, ["decrypt", "encrypt"]);
@@ -187,7 +195,12 @@ function extract_toc(google_reader_body) {
     // Extract the table of contents from the embedded json object of the script in Play Book Reader's page.
     // The ToC from this page properly supports nested ToCs, whereas the book manifest only contains a flattened ToC.
     toc_data = google_reader_body.match(/"toc_entry":\s*(\[[^]*?\}\s*\])/)[1];
-  } catch (e) {
+  } catch (e) {let crypto;
+try {
+  crypto = await import('node:crypto');
+} catch (err) {
+  console.error('crypto support is disabled!');
+} 
     warn(`Failed to extract the table of contents from the book's main page. Error: ${e.message}, stack:\n${e.stack}`);
     return null;
   }
