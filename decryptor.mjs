@@ -47,37 +47,28 @@ async function decrypt(buf) {
   console.log(`\n[iv]:`);
   console.log(iv);
 
-  const realsize_bin = bytearray.subarray(16, 20);
+  const str_expected_length_bin = bytearray.subarray(16, 20);
 
-  // Has custom padding, includes the real size so that we can cut the output to remove the padding.
-  const buf_actualsize = Buffer.from(realsize_bin).readUInt32LE();
-  console.log(`\n[size_uint]: ${buf_actualsize}`);
+  // Has custom padding, includes the real string length so that we can cut the output to remove the padding.
+  const str_expected_length = Buffer.from(str_expected_length_bin).readUInt32LE();
+  console.log(`\n[str_expected_length]: ${str_expected_length}`);
 
   const data = bytearray.subarray(20);
-  // console.log(`\n[data]: ${data.length}`);
+  console.log(`[str_buf_size]: ${data.length}`);
   // console.log(data);
 
   try {
     const dec = aes.dec(data, aes_key, iv, 'binary', 'binary', 'aes-128-cbc', false);
-
-    const size_computed = buf_actualsize;
-    const end = size_computed - 1;
-
-    console.log(`[size_computed]: ${size_computed}`);
-    console.log(`[end]: ${end}`);
-
-    const dec_payload = Buffer.from(dec).subarray(0, end).toString('utf-8');
+    const dec_payload = Buffer.from(dec).toString('utf-8');
+    const dec_payload_cut = dec_payload.substring(0, str_expected_length);
     // console.log(dec_payload);
 
     try {
-      const dec_payload_json = JSON.stringify(JSON.parse(dec_payload), null, 2);
+      const dec_payload_json = JSON.stringify(JSON.parse(dec_payload_cut), null, 2);
       return dec_payload_json;
     } catch (e) {
-      // console.log(`Unparsed JSON payload: ${dec_payload}`);
-      // console.log(`\n\n[[CUT PAYLOAD]]: ${dec_payload}\n\n`);
-      // console.log(`\n\n[[FULL PAYLOAD]]: ${Buffer.from(dec).subarray(0, buf_actualsize + 16).toString('utf-8')}\n\n`);
       console.log(e);
-      return dec_payload;
+      return dec_payload_cut;
     }
   } catch (e) {
     console.log(e);
