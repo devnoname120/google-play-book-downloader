@@ -33,12 +33,14 @@ for (const segment of manifest.segment) {
     console.log(buf_text.length);
 
     const buf_tmp = Buffer.from(buf_text, 'base64');
-    console.log(buf_tmp);
+    // console.log(buf_tmp);
 
     const buf = await decrypt(new Uint8Array(buf_tmp));
 
     const filename = `${segment.order} - ${segment.title}.json`;
-    await fs.writeFile(filename, JSON.stringify(buf, null, 4));
+    await fs.writeFile('deleteme-test-segments/' + filename, JSON.stringify(buf, null, 4), {encoding: 'latin1'});
+    await fs.writeFile('deleteme-test-segments/' + filename + '.html', buf.content, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
+
 
     segment_files.push(filename);
 
@@ -57,8 +59,6 @@ for (const segment of manifest.segment) {
 
 async function decrypt(buf) {
   const bytearray = new Uint8Array(buf);
-  // console.log(`\n[buf]:`);
-  // console.log(bytearray);
 
   const iv = bytearray.subarray(0, 16);
   console.log(`\n[iv]:`);
@@ -72,17 +72,20 @@ async function decrypt(buf) {
 
   const data = bytearray.subarray(20);
   console.log(`[str_buf_size]: ${data.length}`);
-  // console.log(data);
 
   try {
+    // This one decodes properly but then the cut that we perform goes too far
+    // const dec = aes.dec(data, aes_key, iv, 'latin1', 'utf-8', 'aes-128-cbc', false);
+
     const dec = aes.dec(data, aes_key, iv, 'binary', 'binary', 'aes-128-cbc', false);
-    const dec_payload = Buffer.from(dec).toString('utf-8');
-    const dec_payload_cut = dec_payload.substring(0, str_expected_length);
-    // console.log(dec_payload);
+    const dec_payload_cut = dec.substring(0, str_expected_length);
+
+    // I'm not actually sure that it changes anything at all here
+    const decoded = new TextDecoder('utf-8').decode(Buffer.from(dec_payload_cut));
 
     try {
-      console.log(dec_payload_cut);
-      const dec_payload_json = JSON.parse(dec_payload_cut);
+      await fs.writeFile('deleteme-test-segments/' + 'cool' + '.cut.html', decoded, {encoding: "binary"}); // 'latin1' works too, but 'utf-8' fucks up the encoding
+      const dec_payload_json = JSON.parse(decoded);
       return dec_payload_json;
     } catch (e) {
       console.log(e);
