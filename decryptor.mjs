@@ -1,6 +1,8 @@
-#!/usr/bin/env zx
+#!/usr/bin/env zx --install
 
 import * as aes from "aes-cross";
+import {JSDOM} from 'jsdom';
+
 
 $.verbose = false;
 
@@ -35,11 +37,18 @@ for (const segment of manifest.segment) {
     const buf_tmp = Buffer.from(buf_text, 'base64');
     // console.log(buf_tmp);
 
-    const buf = await decrypt(new Uint8Array(buf_tmp));
+    const segment_obj = await decrypt(new Uint8Array(buf_tmp));
 
     const filename = `${segment.order} - ${segment.title}.json`;
-    await fs.writeFile('deleteme-test-segments/' + filename, JSON.stringify(buf, null, 4), {encoding: 'latin1'});
-    await fs.writeFile('deleteme-test-segments/' + filename + '.html', buf.content, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
+    await fs.writeFile('deleteme-test-segments/' + filename, JSON.stringify(segment, null, 4), {encoding: 'latin1'});
+
+    const html = segment_obj.content;
+    const css = segment_obj.style;
+
+    const fixed_html = await replaceImagesWithBase64(html);
+
+    await fs.writeFile('deleteme-test-segments/' + filename + '.css', css, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
+    await fs.writeFile('deleteme-test-segments/' + filename + '.html', `<link rel="stylesheet" href="${filename + '.css'}">` + fixed_html, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
 
 
     segment_files.push(filename);
@@ -50,6 +59,30 @@ for (const segment of manifest.segment) {
   }
 
   await sleep(GOOGLE_PAGE_DOWNLOAD_PACER); // Be gentle with Google Play Books
+}
+
+async function replaceImagesWithBase64(htmlString) {
+  const {window} = new JSDOM(htmlString);
+  const document = window.document;
+
+  const imageElements = document.querySelectorAll('img[src^="http"]');
+
+  // Download and replace each image
+  for (const img of imageElements) {
+    const imageUrl = img.getAttribute('src');
+
+    // Download the image using fetch
+    const imageResponse = await fetch(imageUrl, FETCH_OPTIONS);
+    const imageBuffer = await imageResponse.arrayBuffer();
+
+    // Convert image data to Base64
+    const base64Image = Buffer.from(imageBuffer).toString('base64');
+
+    // Set the src attribute to the Base64-encoded image
+    img.setAttribute('src', `data:${imageResponse.headers.get('content-type')};base64,${base64Image}`);
+  }
+
+  return document.documentElement.outerHTML;
 }
 
 // const buf_enc = new Uint8Array(Buffer.from(b64_str, 'base64'));
