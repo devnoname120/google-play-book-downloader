@@ -39,16 +39,29 @@ for (const segment of manifest.segment) {
 
     const segment_obj = await decrypt(new Uint8Array(buf_tmp));
 
-    const filename = `${segment.order} - ${segment.title}.json`;
+    const filename = decodeHtmlEntities(`${segment.order} - ${segment.title}.json`);
     await fs.writeFile('deleteme-test-segments/' + filename, JSON.stringify(segment, null, 4), {encoding: 'latin1'});
 
     const html = segment_obj.content;
     const css = segment_obj.style;
 
-    const fixed_html = await replaceImagesWithBase64(html);
+    const fixed_html = await embedResourcesAsBase64(html);
+    // const fixed_html = html;
+
+    const fixed_buffer = Buffer.from(fixed_html, 'utf-8'); // Convert to properly encoded buffer
 
     await fs.writeFile('deleteme-test-segments/' + filename + '.css', css, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
-    await fs.writeFile('deleteme-test-segments/' + filename + '.html', `<link rel="stylesheet" href="${filename + '.css'}">` + fixed_html, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
+    await fs.writeFile('deleteme-test-segments/' + filename + '.html', `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <link rel="stylesheet" href="${encodeURIComponent(filename + '.css')}">
+</head>
+<body>
+  ${fixed_buffer}
+</body>
+</html>`, {encoding: 'latin1'});
 
 
     segment_files.push(filename);
@@ -61,32 +74,57 @@ for (const segment of manifest.segment) {
   await sleep(GOOGLE_PAGE_DOWNLOAD_PACER); // Be gentle with Google Play Books
 }
 
-async function replaceImagesWithBase64(htmlString) {
-  const {window} = new JSDOM(htmlString);
-  const document = window.document;
 
-  const imageElements = document.querySelectorAll('img[src^="http"]');
+function decodeHtmlEntities(text) {
+  return text.replace(/&#(\d+);/g, (match, dec) => {
+    return String.fromCharCode(dec);
+  });
+}
 
-  // Download and replace each image
-  for (const img of imageElements) {
-    const imageUrl = img.getAttribute('src');
+async function downloadResourceToBase64(url) {
+  const response = await fetch(url, FETCH_OPTIONS);
+  const buffer = await response.arrayBuffer();
 
-    // Download the image using fetch
-    const imageResponse = await fetch(imageUrl, FETCH_OPTIONS);
-    const imageBuffer = await imageResponse.arrayBuffer();
+  return {
+    contentType: response.headers.get('content-type') || mime.lookup(url),
+    data: Buffer.from(buffer).toString('base64')
+  };
+}
 
-    // Convert image data to Base64
-    const base64Image = Buffer.from(imageBuffer).toString('base64');
-
-    // Set the src attribute to the Base64-encoded image
-    img.setAttribute('src', `data:${imageResponse.headers.get('content-type')};base64,${base64Image}`);
+function embedResource(element, dataUrl) {
+  const tagName = element.tagName.toLowerCase();
+  if (tagName === 'style') {
+    element.textContent = `@import url(${dataUrl});`;
+  } else if (tagName === 'img') {
+    element.setAttribute('src', dataUrl);
 
     // Remove the width and height attributes because they distort images
-    img.removeAttribute('width');
-    img.removeAttribute('height');
+    element.removeAttribute('width');
+    element.removeAttribute('height');
+  } else if (tagName === 'link' || tagName === 'script' || tagName === 'object' || tagName === 'embed' || tagName === 'iframe') {
+    element.setAttribute('src', dataUrl);
+  } else if (tagName === 'audio' || tagName === 'video' || tagName === 'source') {
+    element.setAttribute('src', dataUrl);
+  } else {
+    element.setAttribute('style', element.getAttribute('style').replace(url, dataUrl));
+  }
+}
+
+async function embedResourcesAsBase64(htmlString) {
+  const {window} = new JSDOM(htmlString, {encoding: 'utf-8'});
+  const document = window.document;
+
+  const resourceElements = document.querySelectorAll('img[src^="http"], link[rel="stylesheet"][href^="http"], script[src^="http"], audio[src^="http"], video[src^="http"], source[src^="http"], object[data^="http"], embed[src^="http"], iframe[src^="http"], *[style*="url(http"]');
+
+  // Download and embed each resource
+  for (const element of resourceElements) {
+    const url = element.getAttribute('src') || element.getAttribute('href') || element.getAttribute('data');
+    const {contentType, data} = await downloadResourceToBase64(url);
+    const dataUrl = `data:${contentType};base64,${data}`;
+    embedResource(element, dataUrl);
   }
 
-  return document.documentElement.outerHTML;
+  return document.body.outerHTML;
 }
 
 // const buf_enc = new Uint8Array(Buffer.from(b64_str, 'base64'));
