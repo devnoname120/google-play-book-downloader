@@ -80,6 +80,10 @@ async function replaceImagesWithBase64(htmlString) {
 
     // Set the src attribute to the Base64-encoded image
     img.setAttribute('src', `data:${imageResponse.headers.get('content-type')};base64,${base64Image}`);
+
+    // Remove the width and height attributes because they distort images
+    img.removeAttribute('width');
+    img.removeAttribute('height');
   }
 
   return document.documentElement.outerHTML;
