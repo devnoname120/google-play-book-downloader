@@ -1,5 +1,7 @@
 #!/usr/bin/env zx
 
+const {subtle} = globalThis.crypto;
+
 $.verbose = false;
 
 const BOOK_ID = 'BwCMEAAAQBAJ'; // Found in the URL of the book page. For example: BwCMEAAAQBAJ
@@ -153,11 +155,11 @@ async function decrypt(buf) {
   const iv = bytearray.subarray(0, 16);
   const data = bytearray.subarray(16);
 
-  const key = await crypto.subtle.importKey("raw", aes_key, {
+  const key = await subtle.importKey("raw", aes_key, {
     name: "AES-CBC"
   }, true, ["decrypt", "encrypt"]);
 
-  const decrypted_page_data = await crypto.subtle.decrypt({
+  const decrypted_page_data = await subtle.decrypt({
     name: "AES-CBC",
     iv: iv
   }, key, data);
