@@ -59,7 +59,9 @@ def create_pdf(image_paths, output_pdf_path):
             im.read(1)
 
     output_pdf = open(output_pdf_path, "wb")
-    img2pdf.convert(*image_paths, outputstream=output_pdf)
+    a4inpt = (img2pdf.mm_to_pt(210),img2pdf.mm_to_pt(297))
+    layout_fun = img2pdf.get_layout_fun(a4inpt)
+    img2pdf.convert(*image_paths, layout_fun=layout_fun, outputstream=output_pdf)
 
 
 def generate_output_pdf_filename(base_path):
