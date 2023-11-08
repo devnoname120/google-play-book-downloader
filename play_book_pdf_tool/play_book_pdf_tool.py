@@ -93,8 +93,10 @@ def add_metadata(base_path, pdf):
     language = manifest['language']
     title, authors, pub_date, num_pages, publisher = itemgetter('title', 'authors', 'pub_date', 'num_pages',
                                                                 'publisher')(manifest['metadata'])
-
-    year, month, day = [int(x) for x in pub_date.split('.')]
+    pub_date_parts = pub_date.split('.')
+    year = int(pub_date_parts[0])
+    month = int(pub_date_parts[1]) if len(pub_date_parts) > 1 else 1
+    day = int(pub_date_parts[2]) if len(pub_date_parts) > 2 else 1
     title = html.unescape(title)
     authors = html.unescape(authors)
     publisher = html.unescape(publisher)
