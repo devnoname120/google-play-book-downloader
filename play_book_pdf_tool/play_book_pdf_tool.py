@@ -74,7 +74,9 @@ def generate_output_pdf_filename(base_path):
 
     title, authors, pub_date, num_pages, publisher = itemgetter('title', 'authors', 'pub_date', 'num_pages',
                                                                 'publisher')(manifest['metadata'])
+    title = html.unescape(title)
     year = pub_date.split(".")[0]
+    authors = html.unescape(authors)
 
     filename = f'{title} ({year}) — {authors}'
     return to_valid_filename(filename) + '.pdf'
@@ -93,6 +95,9 @@ def add_metadata(base_path, pdf):
                                                                 'publisher')(manifest['metadata'])
 
     year, month, day = [int(x) for x in pub_date.split('.')]
+    title = html.unescape(title)
+    authors = html.unescape(authors)
+    publisher = html.unescape(publisher)
 
     with pdf.open_metadata() as pdf_metadata:
         pdf_metadata['dc:title'] = title
