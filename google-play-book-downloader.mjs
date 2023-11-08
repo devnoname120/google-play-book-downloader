@@ -23,7 +23,7 @@ const book_dir = `books/${BOOK_ID}`;
 await $`mkdir -p ${book_dir}`;
 await cd(book_dir);
 
-const body = await fetch(`https://play.google.com/books/reader?id=${BOOK_ID}`, FETCH_OPTIONS).then(t => t.text());
+const body = await fetch(`https://play.google.com/books/reader?id=${BOOK_ID}&hl=en`, FETCH_OPTIONS).then(t => t.text());
 
 const aes_key = extract_decryption_key(body);
 await fs.writeFile('aes_key.bin', aes_key);
@@ -31,7 +31,7 @@ success(`Found AES decryption key: [${aes_key}]`);
 
 let toc = extract_toc(body);
 
-const manifest_text = await fetch(`https://play.google.com/books/volumes/${BOOK_ID}/manifest`, FETCH_OPTIONS).then(t => t.text());
+const manifest_text = await fetch(`https://play.google.com/books/volumes/${BOOK_ID}/manifest?hl=en`, FETCH_OPTIONS).then(t => t.text());
 const manifest = JSON.parse(manifest_text);
 await fs.writeFile('manifest.json', JSON.stringify(manifest, null, 4));
 
