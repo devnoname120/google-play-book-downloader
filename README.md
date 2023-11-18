@@ -28,7 +28,7 @@ a PDF from them, do OCR, and add metadata.
 
 # Usage
 
-- Open `google-play-book-downloader.mjs` and edit the following constants:
+- Open `google-play-book-downloader-pdf.mjs` and edit the following constants:
     - `BOOK_ID`: the ID of the book. You can find it in the URL to the book page. Example: `BwCMEAAAQBAJ`
     - `FETCH_OPTIONS`: the headers and cookies that are necessary to send requests on your behalf. Here is how to get
       it:
@@ -42,7 +42,7 @@ a PDF from them, do OCR, and add metadata.
 - Run the script from the repository folder:
 
 ```shell
-zx google-play-book-downloader.mjs
+zx google-play-book-downloader-pdf.mjs
 ```
 
 You will find the downloaded book pages in the `books/[BOOK_ID]` folder.
