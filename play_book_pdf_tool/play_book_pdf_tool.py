@@ -59,7 +59,9 @@ def create_pdf(image_paths, output_pdf_path):
             im.read(1)
 
     output_pdf = open(output_pdf_path, "wb")
-    img2pdf.convert(*image_paths, outputstream=output_pdf)
+    a4inpt = (img2pdf.mm_to_pt(210),img2pdf.mm_to_pt(297))
+    layout_fun = img2pdf.get_layout_fun(a4inpt)
+    img2pdf.convert(*image_paths, layout_fun=layout_fun, outputstream=output_pdf)
 
 
 def generate_output_pdf_filename(base_path):
@@ -72,7 +74,9 @@ def generate_output_pdf_filename(base_path):
 
     title, authors, pub_date, num_pages, publisher = itemgetter('title', 'authors', 'pub_date', 'num_pages',
                                                                 'publisher')(manifest['metadata'])
+    title = html.unescape(title)
     year = pub_date.split(".")[0]
+    authors = html.unescape(authors)
 
     filename = f'{title} ({year}) — {authors}'
     return to_valid_filename(filename) + '.pdf'
@@ -89,8 +93,13 @@ def add_metadata(base_path, pdf):
     language = manifest['language']
     title, authors, pub_date, num_pages, publisher = itemgetter('title', 'authors', 'pub_date', 'num_pages',
                                                                 'publisher')(manifest['metadata'])
-
-    year, month, day = [int(x) for x in pub_date.split('.')]
+    pub_date_parts = pub_date.split('.')
+    year = int(pub_date_parts[0])
+    month = int(pub_date_parts[1]) if len(pub_date_parts) > 1 else 1
+    day = int(pub_date_parts[2]) if len(pub_date_parts) > 2 else 1
+    title = html.unescape(title)
+    authors = html.unescape(authors)
+    publisher = html.unescape(publisher)
 
     with pdf.open_metadata() as pdf_metadata:
         pdf_metadata['dc:title'] = title
