@@ -1,4 +1,8 @@
-#!/usr/bin/env zx --install
+#!/usr/bin/env -S zx --install
+
+// Don't use this script for now because it's messy and not finished!
+// If you do use it, then do it at your own risk. Don't ask me questions and don't open issues on the repo.
+
 
 import * as aes from "aes-cross";
 import {JSDOM} from 'jsdom';
@@ -24,8 +28,6 @@ const segment_files = [];
 log(`Starting to download ${total} segments…`);
 
 for (const segment of manifest.segment) {
-  // const p = `${i + 1}/${total}`;
-
   const segment_url = 'https://play.google.com' + segment.link;
   try {
     console.log(`===> segment #${segment.order}: ${segment.label} (${segment.title})`);
@@ -35,23 +37,19 @@ for (const segment of manifest.segment) {
     console.log(buf_text.length);
 
     const buf_tmp = Buffer.from(buf_text, 'base64');
-    // console.log(buf_tmp);
-
     const segment_obj = await decrypt(new Uint8Array(buf_tmp));
 
     const filename = decodeHtmlEntities(`${segment.order} - ${segment.title}.json`);
-    await fs.writeFile('deleteme-test-segments/' + filename, JSON.stringify(segment, null, 4), {encoding: 'latin1'});
+    await fs.writeFile('html-segments/' + filename, JSON.stringify(segment, null, 4), {encoding: 'latin1'});
 
     const html = segment_obj.content;
     const css = segment_obj.style;
 
     const fixed_html = await embedResourcesAsBase64(html);
-    // const fixed_html = html;
-
     const fixed_buffer = Buffer.from(fixed_html, 'utf-8'); // Convert to properly encoded buffer
 
-    await fs.writeFile('deleteme-test-segments/' + filename + '.css', css, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
-    await fs.writeFile('deleteme-test-segments/' + filename + '.html', `<!DOCTYPE html>
+    await fs.writeFile('html-segments/' + filename + '.css', css, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
+    await fs.writeFile('html-segments/' + filename + '.html', `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -127,11 +125,6 @@ async function embedResourcesAsBase64(htmlString) {
   return document.body.outerHTML;
 }
 
-// const buf_enc = new Uint8Array(Buffer.from(b64_str, 'base64'));
-//
-// const buf = await decrypt(buf_enc);
-
-
 async function decrypt(buf) {
   const bytearray = new Uint8Array(buf);
 
@@ -159,7 +152,7 @@ async function decrypt(buf) {
     const decoded = new TextDecoder('utf-8').decode(Buffer.from(dec_payload_cut));
 
     try {
-      await fs.writeFile('deleteme-test-segments/' + 'cool' + '.cut.html', decoded, {encoding: "binary"}); // 'latin1' works too, but 'utf-8' fucks up the encoding
+      await fs.writeFile('html-segments/' + 'cool' + '.cut.html', decoded, {encoding: "binary"}); // 'latin1' works too, but 'utf-8' fucks up the encoding
       const dec_payload_json = JSON.parse(decoded);
       return dec_payload_json;
     } catch (e) {
