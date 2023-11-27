@@ -90,14 +90,12 @@ def add_metadata(base_path, pdf):
     title, authors, pub_date, num_pages, publisher = itemgetter('title', 'authors', 'pub_date', 'num_pages',
                                                                 'publisher')(manifest['metadata'])
 
-    year, month, day = [int(x) for x in pub_date.split('.')]
-
     with pdf.open_metadata() as pdf_metadata:
         pdf_metadata['dc:title'] = title
         pdf_metadata['dc:creator'] = [author.strip() for author in authors.split(',')]
         pdf_metadata['dc:language'] = [language]
         pdf_metadata['dc:publisher'] = [publisher]
-        pdf_metadata['xmp:CreateDate'] = datetime.datetime(year, month, day).isoformat()
+        pdf_metadata['xmp:CreateDate'] = pub_date.replace('.', '-')
 
 
 def add_toc(book_base_path, pdf):
