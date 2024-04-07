@@ -11,6 +11,10 @@ import html
 import click
 from pikepdf import Pdf, OutlineItem
 import img2pdf
+from pydash import _
+
+logging.basicConfig(format="[%(levelname)s] %(message)s")
+logging.getLogger().setLevel(logging.INFO)
 
 
 @click.command()
@@ -25,9 +29,26 @@ def pdf_generate(book_base_path: pathlib.Path):
     Note: the pages of the book need to have already been downloaded prior to running this command.
     """
 
-    pages_filename = book_base_path / 'pages.txt'
+    try:
+        with open(f'{book_base_path}/manifest.json') as f_manifest:
+            manifest = json.load(f_manifest)
+    except FileNotFoundError:
+        logging.error(
+            f"Couldn't find [{f'{book_base_path}/manifest.json'}]! Aborting...")
+        raise
 
-    pages_filename = pathlib.Path(pages_filename).read_text(encoding='UTF-8').splitlines()
+    pages_filename = pathlib.Path(book_base_path / 'pages.txt').read_text(encoding='UTF-8').splitlines()
+
+    if manifest.get('is_right_to_left'):
+        logging.info(f"the manifest indicates that the book pages are ordered right to left. We will swap the order of the pages so that they show correctly in the PDF.")
+
+        front = _.head(pages_filename)
+        back = _.last(pages_filename)
+
+        reversed_middle = _(pages_filename).initial().tail().chunk(2).map(_.reverse).flatten()
+
+        pages_filename = reversed_middle.unshift(front).push(back).value()
+
     page_paths = list(map(lambda fn: str(book_base_path / fn), pages_filename))
 
     print(f'Merging {len(page_paths)} pages... (this can take a long time)')
@@ -70,11 +91,11 @@ def generate_output_pdf_filename(base_path):
         logging.error(f"Couldn't find [{f'{base_path}/manifest.json'}]! Aborting...")
         raise
 
-    title, authors, pub_date, num_pages, publisher = itemgetter('title', 'authors', 'pub_date', 'num_pages',
-                                                                'publisher')(manifest['metadata'])
-    title = html.unescape(title)
-    year = pub_date.split(".")[0]
-    authors = html.unescape(authors)
+    m = _(manifest)
+
+    title = m.get('metadata.title').apply(html.unescape).value()
+    year = m.get('metadata.pub_date').split('.').head().value()
+    authors = m.get('metadata.authors').apply(html.unescape).value()
 
     filename = f'{title} ({year}) — {authors}'
     return to_valid_filename(filename) + '.pdf'
@@ -88,24 +109,50 @@ def add_metadata(base_path, pdf):
         logging.error(f"Couldn't find [{f'{base_path}/manifest.json'}]! Aborting...")
         raise
 
-    language = manifest['language']
-    title, authors, pub_date, num_pages, publisher = itemgetter('title', 'authors', 'pub_date', 'num_pages',
-                                                                'publisher')(manifest['metadata'])
-    title = html.unescape(title)
-    authors = html.unescape(authors)
-    publisher = html.unescape(publisher)
-
     with pdf.open_metadata() as pdf_metadata:
-        pdf_metadata['dc:title'] = title
-        pdf_metadata['dc:creator'] = [author.strip() for author in authors.split(',')]
-        pdf_metadata['dc:language'] = [language]
-        pdf_metadata['dc:publisher'] = [publisher]
+        m = _(manifest)
 
-        xmp_date = pub_date.replace('.', '-', 3)
-        if validate_xmp_date(xmp_date):
-            pdf_metadata['xmp:CreateDate'] = xmp_date
-        else:
-            logging.warning(f"Invalid xmp:CreateDate format '{xmp_date}'. Metadata will not include 'xmp:CreateDate'. See https://developer.adobe.com/xmp/docs/XMPNamespaces/XMPDataTypes/#date")
+        pdf_metadata['dc:title'] = m.get('metadata.title').apply(html.unescape).value()
+
+        if authors := m.get('metadata.authors').value():
+            pdf_metadata['dc:creator'] = [html.unescape(author).strip() for author in
+                                          authors.split(',')]
+
+        if publisher := m.get('metadata.publisher').value():
+            pdf_metadata['dc:publisher'] = [publisher]
+
+        if pub_date := m.get('metadata.pub_date').value():
+            xmp_date = pub_date.replace('.', '-', 3)
+
+            if validate_xmp_date(xmp_date):
+                pdf_metadata['xmp:CreateDate'] = xmp_date
+            else:
+                logging.warning(
+                    f"Invalid xmp:CreateDate format '{xmp_date}'. Metadata will not include 'xmp:CreateDate'. See https://developer.adobe.com/xmp/docs/XMPNamespaces/XMPDataTypes/#date")
+        # Unused properties:
+        #   metadata
+        #       .num_pages
+        #       .preview
+        #       .volume_id
+
+        if language := m.get('language').value():
+            pdf_metadata['dc:language'] = [language]
+
+        # Unused properties:
+        #   volume_version
+        #   first_chapter_start_page
+        #   preferred_mode
+        #   available_mode
+        #   default_size
+        #       .width
+        #       .height
+        #   image_mode_positions
+        #       .content_start
+        #       .content_end
+        #   text_mode_positions
+        #       .content_start
+        #       .content_end
+        #
 
 
 def add_toc(book_base_path, pdf):
@@ -164,3 +211,7 @@ def validate_xmp_date(date_str):
             continue
 
     return False
+
+
+if __name__ == '__main__':
+    pdf_generate()
