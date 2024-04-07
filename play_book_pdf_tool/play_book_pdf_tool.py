@@ -95,7 +95,7 @@ def add_metadata(base_path, pdf):
         pdf_metadata['dc:creator'] = [author.strip() for author in authors.split(',')]
         pdf_metadata['dc:language'] = [language]
         pdf_metadata['dc:publisher'] = [publisher]
-        pdf_metadata['xmp:CreateDate'] = pub_date.replace('.', '-')
+        pdf_metadata['xmp:CreateDate'] = pub_date.replace('.', '-', 3)
 
 
 def add_toc(book_base_path, pdf):
