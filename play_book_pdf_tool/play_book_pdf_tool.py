@@ -93,10 +93,7 @@ def add_metadata(base_path, pdf):
     language = manifest['language']
     title, authors, pub_date, num_pages, publisher = itemgetter('title', 'authors', 'pub_date', 'num_pages',
                                                                 'publisher')(manifest['metadata'])
-    pub_date_parts = pub_date.split('.')
-    year = int(pub_date_parts[0])
-    month = int(pub_date_parts[1]) if len(pub_date_parts) > 1 else 1
-    day = int(pub_date_parts[2]) if len(pub_date_parts) > 2 else 1
+
     title = html.unescape(title)
     authors = html.unescape(authors)
     publisher = html.unescape(publisher)
@@ -106,7 +103,12 @@ def add_metadata(base_path, pdf):
         pdf_metadata['dc:creator'] = [author.strip() for author in authors.split(',')]
         pdf_metadata['dc:language'] = [language]
         pdf_metadata['dc:publisher'] = [publisher]
-        pdf_metadata['xmp:CreateDate'] = datetime.datetime(year, month, day).isoformat()
+
+        xmp_date = pub_date.replace('.', '-', 3)
+        if validate_xmp_date(xmp_date):
+            pdf_metadata['xmp:CreateDate'] = xmp_date
+        else:
+            logging.warning(f"Invalid xmp:CreateDate format '{xmp_date}'. Metadata will not include 'xmp:CreateDate'. See https://developer.adobe.com/xmp/docs/XMPNamespaces/XMPDataTypes/#date")
 
 
 def add_toc(book_base_path, pdf):
@@ -144,3 +146,24 @@ def to_valid_filename(value):
     value = unicodedata.normalize("NFKC", value)
     value = re.sub(r"[^\w\s\-.,—()]", "", value).strip("-_")
     return value
+
+
+def validate_xmp_date(date_str):
+    # https://developer.adobe.com/xmp/docs/XMPNamespaces/XMPDataTypes/#date
+    formats = [
+        "%Y",  # YYYY
+        "%Y-%m",  # YYYY-MM
+        "%Y-%m-%d",  # YYYY-MM-DD
+        "%Y-%m-%dT%H:%M%z",  # YYYY-MM-DDThh:mmTZD (TZD as UTC offset)
+        "%Y-%m-%dT%H:%M:%S%z",  # YYYY-MM-DDThh:mm:ssTZD (TZD as UTC offset)
+        # "%Y-%m-%dT%H:%M:%S.%f%z"  # FIXME: strptime cannot handle the fractional second part so this last format is not possible. Will need to add a workaround for that one if we need to support this format at a later point.
+    ]
+
+    for fmt in formats:
+        try:
+            datetime.datetime.strptime(date_str, fmt)
+            return True
+        except ValueError:
+            continue
+
+    return False

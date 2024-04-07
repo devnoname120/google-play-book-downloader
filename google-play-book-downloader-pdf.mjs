@@ -18,12 +18,15 @@ const FETCH_OPTIONS = {};
 
 info(`Script started`);
 
+// Remove all the properties except `headers` from the `FETCH_OPTIONS` object. Unnecessary additional properties such as `body`, `method`, etc. break the calls to `fetch()`.
+fix_fetch_options();
+
 const book_dir = `books/${BOOK_ID}`;
 
 await $`mkdir -p ${book_dir}`;
 await cd(book_dir);
 
-const body = await fetch(`https://play.google.com/books/reader?id=${BOOK_ID}`, FETCH_OPTIONS).then(t => t.text());
+const body = await fetch(`https://play.google.com/books/reader?id=${BOOK_ID}&hl=en`, FETCH_OPTIONS).then(t => t.text());
 
 const aes_key = extract_decryption_key(body);
 await fs.writeFile('aes_key.bin', aes_key);
@@ -31,7 +34,7 @@ success(`Found AES decryption key: [${aes_key}]`);
 
 let toc = extract_toc(body);
 
-const manifest_text = await fetch(`https://play.google.com/books/volumes/${BOOK_ID}/manifest`, FETCH_OPTIONS).then(t => t.text());
+const manifest_text = await fetch(`https://play.google.com/books/volumes/${BOOK_ID}/manifest?hl=en`, FETCH_OPTIONS).then(t => t.text());
 const manifest = JSON.parse(manifest_text);
 await fs.writeFile('manifest.json', JSON.stringify(manifest, null, 4));
 
@@ -261,4 +264,11 @@ function unescape_html(str) {
   return str.replace(/&#(\d+);/g, (match, code) => {
     return String.fromCharCode(code);
   });
+}
+
+function fix_fetch_options() {
+  for (const propKey of Object.keys(FETCH_OPTIONS)) {
+    if (propKey !== 'headers')
+      delete FETCH_OPTIONS[propKey];
+  }
 }
