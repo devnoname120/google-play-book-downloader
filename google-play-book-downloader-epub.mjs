@@ -8,19 +8,23 @@ import * as aes from "aes-cross";
 import {JSDOM} from 'jsdom';
 
 
-$.verbose = false;
+$.verbose = true;
 
 const FETCH_OPTIONS = {};
 
 const BOOK_ID = 'BwCMEAAAQBAJ'; // Found in the URL of the book page. For example: BwCMEAAAQBAJ
 const GOOGLE_PAGE_DOWNLOAD_PACER = 100; // Wait between requests to reduce risk of getting flagged for abuse. The official frontend sequentially spams the segments API without wait so it should be safe to put a crazy number here.
 
-const aes_key_raw = await fs.readFile(`books/${BOOK_ID}/aes_key.bin`);
+await cd(`books/${BOOK_ID}`);
+await $`mkdir -p segments`;
+
+
+const aes_key_raw = await fs.readFile(`aes_key.bin`);
 const aes_key = new Uint8Array(aes_key_raw);
 console.log(`[aes_key]: ${aes_key}\n`);
 console.log(aes_key);
 
-const manifest = JSON.parse(await fs.readFile(`books/${BOOK_ID}/manifest.json`));
+const manifest = JSON.parse(await fs.readFile(`manifest.json`));
 
 const total = manifest.segment.length;
 const segment_files = [];
@@ -40,7 +44,7 @@ for (const segment of manifest.segment) {
     const segment_obj = await decrypt(new Uint8Array(buf_tmp));
 
     const filename = decodeHtmlEntities(`${segment.order} - ${segment.title}.json`);
-    await fs.writeFile('html-segments/' + filename, JSON.stringify(segment, null, 4), {encoding: 'latin1'});
+    await fs.writeFile('segments/' + filename, JSON.stringify(segment, null, 4), {encoding: 'latin1'});
 
     const html = segment_obj.content;
     const css = segment_obj.style;
@@ -48,8 +52,8 @@ for (const segment of manifest.segment) {
     const fixed_html = await embedResourcesAsBase64(html);
     const fixed_buffer = Buffer.from(fixed_html, 'utf-8'); // Convert to properly encoded buffer
 
-    await fs.writeFile('html-segments/' + filename + '.css', css, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
-    await fs.writeFile('html-segments/' + filename + '.html', `<!DOCTYPE html>
+    await fs.writeFile('segments/' + filename + '.css', css, {encoding: 'latin1'}); // 'binary' works too, but 'utf-8' fucks up the encoding
+    await fs.writeFile('segments/' + filename + '.html', `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -152,7 +156,7 @@ async function decrypt(buf) {
     const decoded = new TextDecoder('utf-8').decode(Buffer.from(dec_payload_cut));
 
     try {
-      await fs.writeFile('html-segments/' + 'cool' + '.cut.html', decoded, {encoding: "binary"}); // 'latin1' works too, but 'utf-8' fucks up the encoding
+      await fs.writeFile('segments/' + 'cool' + '.cut.html', decoded, {encoding: "binary"}); // 'latin1' works too, but 'utf-8' fucks up the encoding
       const dec_payload_json = JSON.parse(decoded);
       return dec_payload_json;
     } catch (e) {
