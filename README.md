@@ -24,10 +24,9 @@ a PDF from them, do OCR, and add metadata.
   and [Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer).
 - Download and extract
   the [project repository](https://github.com/devnoname120/google-play-book-downloader/archive/refs/heads/main.zip).
+- Run `poetry install` inside the extracted project repository folder in order to download the dependencies.
 
-# Usage
-
-- Run `poetry install` inside the extracted project repository folder to download the dependencies.
+# Usage (PDF download)
 
 - Open `google-play-book-downloader-pdf.py` and edit the following constants:
     - `BOOK_ID`: the ID of the book. You can find it in the URL to the book page. Example: `BwCMEAAAQBAJ`
@@ -98,3 +97,31 @@ You will find the downloaded book pages in the `books/[BOOK_ID]` folder.
           it's still downloading in the background.
         - Set `Object compression options` to `Leave compression unchanged`.
     - Click on OK.
+
+
+# Usage (EPUB download)
+
+There is an *extremely experimental* EPUB downloader in the project as well. For now it just downloads all the pages of a given book in the HTML format and embeds all the resources (images, fonts, etc.) directly in the HTML files as base64. EPUB is not reconstructed yet.
+
+No support yet as it's experimental! Please don't open issues on GitHub regarding the EPUB downloader.
+
+- First run the PDF download for the book (**mandatory**). See the section above on how to do that.
+
+- Open `google-play-book-downloader-epub.py` and edit the following constants:
+    - `BOOK_ID`: the ID of the book. You can find it in the URL to the book page. Example: `BwCMEAAAQBAJ`
+    - `headers`/`cookies`: the headers and cookies that are necessary to send requests on your behalf. Here is how to get
+      them:
+        1) Go to https://play.google.com/books and log in.
+        2) Open dev console, network tab.
+        3) Click on a random link in the page.
+        4) Right-click on the corresponding request in the dev console and then `Copy as cURL`.
+        5) Go to https://curlconverter.com/python/ and paste your clipboard in the input box.
+        6) From the Python code that was generated just copy the `cookies` and `headers` variables and replace them in `google-play-downloader-epub.py`.
+
+- Run the script from the repository folder:
+
+```shell
+poetry run python google-play-book-downloader-epub.py
+```
+
+You will find the downloaded book pages as HTML in the `books/[BOOK_ID]/segments` folder. The output is very crude and EPUBs are not reconstructed.
