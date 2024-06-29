@@ -12,15 +12,14 @@ a PDF from them, do OCR, and add metadata.
   EPUB or a PDF file. You can then read the downloaded book on any platform, provided that it supports the Adobe Digital
   Editions DRM.
 - Problem: Many PDFs are not available for download because Google unilaterally decides that they
-  are [“large book files”](https://support.google.com/googleplay/answer/179863#:~:text=You%20can%27t%20download%20some%20large%20book%20files) (
+  are [“large book files”](https://support.google.com/googleplay/answer/179863?hl=en#:~:text=You%20can%27t%20download%20some%20large%20book%20files) (
   vague term for which they provide no definition). Due to that you can't read the book (that you bought!) on the
   platform of your choice.
 
 **Note**: this script only works for books that have the “Original Pages” viewing option.
 
-# Prequisites
+# Prerequisites
 
-- Install [zx](https://github.com/google/zx).
 - Install [Python](https://www.python.org/downloads/)
   and [Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer).
 - Download and extract
@@ -28,21 +27,23 @@ a PDF from them, do OCR, and add metadata.
 
 # Usage
 
-- Open `google-play-book-downloader-pdf.mjs` and edit the following constants:
+- Run `poetry install` inside the extracted project repository folder to download the dependencies.
+
+- Open `google-play-book-downloader-pdf.py` and edit the following constants:
     - `BOOK_ID`: the ID of the book. You can find it in the URL to the book page. Example: `BwCMEAAAQBAJ`
-    - `FETCH_OPTIONS`: the headers and cookies that are necessary to send requests on your behalf. Here is how to get
-      it:
+    - `headers`/`cookies`: the headers and cookies that are necessary to send requests on your behalf. Here is how to get
+      them:
         1) Go to https://play.google.com/books and log in.
         2) Open dev console, network tab.
         3) Click on a random link in the page.
-        4) Right-click on the corresponding request in the dev console and then `Copy as Node.js fetch`.
-        5) Paste the object inside `FETCH_OPTIONS`. The object that you need is the second argument in the call
-           to `fetch()`.
+        4) Right-click on the corresponding request in the dev console and then `Copy as cURL`.
+        5) Go to https://curlconverter.com/python/ and paste your clipboard in the input box.
+        6) From the Python code that was generated just copy the `cookies` and `headers` variables and replace them in `google-play-downloader-pdf.py`.
 
 - Run the script from the repository folder:
 
 ```shell
-zx google-play-book-downloader-pdf.mjs
+poetry run python google-play-book-downloader-pdf.py
 ```
 
 You will find the downloaded book pages in the `books/[BOOK_ID]` folder.
