@@ -16,7 +16,7 @@ const GOOGLE_PAGE_DOWNLOAD_PACER = 2 * 1000; // Wait between requests to reduce 
 // 5) Options object is the second argument in the call to fetch().
 const FETCH_OPTIONS = {};
 
-info(`Script started`);
+info(`Script started for book id: ${BOOK_ID}`);
 
 // Remove all the properties except `headers` from the `FETCH_OPTIONS` object. Unnecessary additional properties such as `body`, `method`, etc. break the calls to `fetch()`.
 fix_fetch_options();
@@ -34,7 +34,7 @@ success(`Found AES decryption key: [${aes_key}]`);
 
 let toc = extract_toc(body);
 
-const manifest_text = await fetch(`https://play.google.com/books/volumes/${BOOK_ID}/manifest?hl=en`, FETCH_OPTIONS).then(t => t.text());
+const manifest_text = await fetch(`https://play.google.com/books/volumes/${BOOK_ID}/manifest?hl=en&authuser=2&source=ge-web-app`, FETCH_OPTIONS).then(t => t.text());
 const manifest = JSON.parse(manifest_text);
 await fs.writeFile('manifest.json', JSON.stringify(manifest, null, 4));
 
@@ -97,9 +97,9 @@ for (let [i, page] of manifest.page.entries()) {
 
     page_files.push(filename);
 
-    log(`[${p}] Saved to ${filename} (url: ${src})`);
+    log(`[${p}] Saved to ${filename}`);
   } catch (e) {
-    err(`[${p}] Error! Download or decrypt failed (url: ${src}) failed with ${e.message}\n${e.stack}`);
+    err(`[${p}] Error! Download or decrypt failed with ${e.message}\n${e.stack}`);
   }
 
   await sleep(GOOGLE_PAGE_DOWNLOAD_PACER); // Be gentle with Google Play Books
@@ -144,6 +144,8 @@ async function download_page(src) {
   page_url.searchParams.set('zoom', 3); // Zoom values 1 and 2 are for thumbnails (degraded quality)
   page_url.searchParams.set('enc_all', 1); // Setting this to 0 returns a non-encrypted image, but it's mangled instead
   page_url.searchParams.set('img', 1);
+
+  log(`Downloading url: ${page_url}`);
 
   const response = await fetch(page_url, FETCH_OPTIONS);
 
