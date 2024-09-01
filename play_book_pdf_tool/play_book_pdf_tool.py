@@ -20,7 +20,8 @@ logging.getLogger().setLevel(logging.INFO)
 @click.command()
 @click.argument(
     "book-base-path",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, readable=True, path_type=pathlib.Path),
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True,
+                    readable=True, path_type=pathlib.Path),
 )
 def pdf_generate(book_base_path: pathlib.Path):
     """Build a PDF from the Google Play Book pages located in the directory BOOK-BASE-PATH.
@@ -34,10 +35,12 @@ def pdf_generate(book_base_path: pathlib.Path):
         with open(f"{book_base_path}/manifest.json") as f_manifest:
             manifest = json.load(f_manifest)
     except FileNotFoundError:
-        logging.error(f"Couldn't find [{f'{book_base_path}/manifest.json'}]! Aborting...")
+        logging.error(
+            f"Couldn't find [{f'{book_base_path}/manifest.json'}]! Aborting...")
         raise
 
-    pages_filename = pathlib.Path(book_base_path / "pages.txt").read_text(encoding="UTF-8").splitlines()
+    pages_filename = pathlib.Path(book_base_path / "pages.txt").read_text(
+        encoding="UTF-8").splitlines()
 
     if manifest.get("is_right_to_left"):
         logging.info(
@@ -47,7 +50,8 @@ def pdf_generate(book_base_path: pathlib.Path):
         front = _.head(pages_filename)
         back = _.last(pages_filename)
 
-        reversed_middle = _(pages_filename).initial().tail().chunk(2).map(_.reverse).flatten()
+        reversed_middle = _(pages_filename).initial().tail().chunk(2).map(
+            _.reverse).flatten()
 
         pages_filename = reversed_middle.unshift(front).push(back).value()
 
@@ -117,7 +121,8 @@ def add_metadata(base_path, pdf):
         pdf_metadata["dc:title"] = m.get("metadata.title").apply(html.unescape).value()
 
         if authors := m.get("metadata.authors").value():
-            pdf_metadata["dc:creator"] = [html.unescape(author).strip() for author in authors.split(",")]
+            pdf_metadata["dc:creator"] = [html.unescape(author).strip() for author in
+                                          authors.split(",")]
 
         if publisher := m.get("metadata.publisher").value():
             pdf_metadata["dc:publisher"] = [publisher]
@@ -162,7 +167,8 @@ def add_toc(book_base_path, pdf):
         with open(book_base_path / "toc.json") as f_toc:
             toc = json.load(f_toc)
     except FileNotFoundError:
-        logging.error("Couldn't find toc.json! Falling back to manifest.json. The outline structure will be flat...")
+        logging.error(
+            "Couldn't find toc.json! Falling back to manifest.json. The outline structure will be flat...")
         try:
             with open(book_base_path / "manifest.json") as f_toc:
                 toc = json.load(f_toc)["toc_entry"]
@@ -177,7 +183,8 @@ def add_toc(book_base_path, pdf):
         pdf_outline.root.clear()
 
         for toc_item in toc:
-            label, depth, page_index = itemgetter("label", "depth", "page_index")(toc_item)
+            label, depth, page_index = itemgetter("label", "depth", "page_index")(
+                toc_item)
             label = html.unescape(label)
 
             parent = pdf_outline.root
