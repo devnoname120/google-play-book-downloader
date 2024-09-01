@@ -126,23 +126,41 @@ with open("manifest.json", "r") as f:
 total = len(manifest["segment"])
 segment_files = []
 
+with open("segments.txt", "w") as segments_file:
+    segments_file.writelines(
+        list(map(lambda s: s["label"] + "\n", manifest["segment"])))
+
 log(f"Starting to download {total} segments…")
 
 for segment in manifest["segment"]:
     segment_url = "https://play.google.com" + segment["link"]
     try:
         log(f"===> segment #{segment['order']}: {segment['label']} ({segment['title']})")
-        response = fetch_segment(segment_url)
-        buf_text = response.text
-        buf_tmp = base64.b64decode(buf_text)
-        segment_obj = json.loads(decrypt(buf_tmp, aes_key))
+        response_enc_b64 = fetch_segment(segment_url).text
+        response_enc = base64.b64decode(response_enc_b64)
+        response = decrypt(response_enc, aes_key)
+
+        label = segment["label"]
+
+        with open(f"segments/{label}.json", "w", encoding="utf-8") as f:
+            json.dump(response, f, indent=4)
+
+        segment_obj = json.loads(response)
+
+        html = segment_obj["content"]
+        css = segment_obj["style"]
+
+        # FIXME: what if label is not actually unique?
+        with open(f"{label}.xhtml", "w", encoding="utf-8") as f:
+            f.write(html)
+        with open(f"{label}.css", "w", encoding="utf-8") as f:
+            f.write(css)
+
+        # Old stuff
 
         filename = decode_html_entities(f"{segment['order']} - {segment['title']}.json")
         with open(f"segments/{filename}", "w", encoding="utf-8") as f:
             json.dump(segment, f, indent=4)
-
-        html = segment_obj['content']
-        css = segment_obj['style']
 
         fixed_html = embed_resources_as_base64(html)
         with open(f"segments/{filename}.css", "w", encoding="utf-8") as f:
