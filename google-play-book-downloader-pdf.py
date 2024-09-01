@@ -34,6 +34,7 @@ book_dir = f"books/{BOOK_ID}"
 os.makedirs(book_dir, exist_ok=True)
 os.chdir(book_dir)
 
+# &hl=en is necessary to fix encoding issues with Cyrillic
 response = requests.get(f"https://play.google.com/books/reader?id={BOOK_ID}&hl=en",
                         cookies=cookies, headers=headers)
 body = response.text
