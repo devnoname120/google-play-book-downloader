@@ -12,8 +12,8 @@ authors = ["devnoname120"]
 play-book-pdf-build = "play_book_pdf_tool.play_book_pdf_tool:pdf_generate"
 
 [tool.poetry.dependencies]
-python = "^3.8"
-pikepdf = "^7.1.1"
+python = "^3.13"
+pikepdf = "^9.4.2"
 img2pdf = "^0.4.4"
 click = "^8.1.3"
 pydash = "^8.0.0"
