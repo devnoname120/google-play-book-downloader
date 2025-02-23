@@ -28,18 +28,17 @@ a PDF from them, do OCR, and add metadata.
 
 # Usage (PDF download)
 
-- Open `google-play-book-downloader-pdf.py` and edit the following constants:
-    - `BOOK_ID`: the ID of the book. You can find it in the URL to the book page. Example: `BwCMEAAAQBAJ`
-    - `headers`/`cookies`: the headers and cookies that are necessary to send requests on your behalf. Here is how to get
-      them:
-        1) Go to https://play.google.com/books and log in.
-        2) Open dev console, network tab.
-        3) Click on a random link in the page.
-        4) Right-click on the corresponding request in the dev console and then `Copy as cURL`.
-        5) Go to https://curlconverter.com/python/ and paste your clipboard in the input box.
-        6) From the Python code that was generated just copy the `cookies` and `headers` variables and replace them in `google-play-downloader-pdf.py`.
-
-- Run the script from the repository folder:
+- Get the cookies and headers from Google Play Books:
+    1) Open a new private/incognito browser window.
+    2) Go to https://play.google.com/books and log in.
+    3) Open dev console, network tab.
+    4) Click on a random link in the page.
+    5) Right-click on the corresponding request in the dev console and then `Copy as cURL`.
+    6) In the `google-play-book-downloader` project folder, create the file `curl.txt` if it doesn't exist. If it already exists, delete its content.
+    7) Paste your clipboard in the `curl.txt` file and save.
+    8) Close the private browser window (and don't log out of your account before doing that).
+- **Note:** you will need to redo the previous steps every time your cookies expire (they usually expire pretty quickly unfortunately).
+- Run the script from the project folder:
 
 ```shell
 poetry run python google-play-book-downloader-pdf.py
