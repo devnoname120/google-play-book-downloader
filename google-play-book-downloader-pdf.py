@@ -7,38 +7,183 @@ import re
 import requests
 import base64
 import logging
+import shlex
+import argparse
 
 from urllib.parse import urlparse, urlencode, urlunparse, parse_qs
 from Cryptodome.Cipher import AES
 
-BOOK_ID = ""  # Found in the URL of the book page. For example: BwCMEAAAQBAJ
 GOOGLE_PAGE_DOWNLOAD_PACER = 0.5  # Wait between requests to reduce risk of getting flagged for abuse.
 
-# How to get this options object:
-# 1) Go to https://play.google.com/books and log in.
-# 2) Open dev console, network tab.
-# 3) Click somewhere in the page.
-# 4) Right-click on the corresponding request in the dev console and then “Copy as cURL”.
-# 5) Go to https://curlconverter.com/python/ and paste your clipboard in the input box.
-# 6) From the Python code that was generated just copy the cookies and the headers to replace the two lines below:
-cookies = {}
-headers = {}
+# 5) Right-click on the first request (it should appear as segment?authuser=0&xxxxxxxxx) in the dev console and then "Copy as cURL".
+# 6) Paste it here
 
-# Configure logging
-logging.basicConfig(level=logging.INFO,
-                    format="[%(asctime)s] %(levelname)s: %(message)s")
+def main():
+    BOOK_ID = input("Type your book ID and press enter: ")
 
-logging.info(f"Script started for book id: {BOOK_ID}")
+    try:
+        with open("curl.txt", "r") as f:
+            curl_command = f.read().strip()
+    except FileNotFoundError:
+        print("""\nYou will need to provide your cookies in order to download books. Here is how:
+1) Go to https://play.google.com/books and log in.
+2) Open dev console, network tab.
+3) Click on the book you want to read (the link should have the format https://play.google.com/books/reader?id=xxxxxxxxxx)
+4) In the network tab of the dev console type "segment" (without the quotes) in the filter box.
+5) Right-click on the first request (it should appear as segment?authuser=0&xxxxxxxxx) in the dev console and then "Copy as cURL".
+6) Create the file curl.txt and paste it inside\n""")
+        raise FileNotFoundError("curl.txt file not found. Please create it and put the curl command from the browser.")
+    except IOError as e:
+        raise IOError(f"Error reading curl.txt: {e}")
 
-book_dir = f"books/{BOOK_ID}"
-os.makedirs(book_dir, exist_ok=True)
-os.chdir(book_dir)
+    try:
+        url, cookies, headers = parse_curl_command(curl_command)
+    except ValueError as e:
+        raise ValueError(f"Failed to parse curl command: {e}")
 
-# &hl=en is necessary to fix encoding issues with Cyrillic
-response = requests.get(f"https://play.google.com/books/reader?id={BOOK_ID}&hl=en",
-                        cookies=cookies, headers=headers)
-body = response.text
+    if url.netloc != "play.google.com":
+        raise ValueError(f"Invalid curl command in curl.txt. The domain name should be to 'play.google.com' but in the command it is: {url.netloc}")
 
+    logging.basicConfig(level=logging.INFO,
+                        format="[%(asctime)s] %(levelname)s: %(message)s")
+
+    logging.info(f"Script started for book id: {BOOK_ID}")
+
+    book_dir = f"books/{BOOK_ID}"
+    os.makedirs(book_dir, exist_ok=True)
+    os.chdir(book_dir)
+
+    # &hl=en is necessary to fix encoding issues with Cyrillic
+    response = requests.get(f"https://play.google.com/books/reader?id={BOOK_ID}&hl=en",
+                            cookies=cookies, headers=headers)
+    body = response.text
+
+    aes_key = extract_decryption_key(body)
+    with open("aes_key.bin", "wb") as key_file:
+        key_file.write(aes_key)
+    logging.info(f"Found AES decryption key: [{aes_key.hex()}]")
+
+    toc = extract_toc(body)
+
+    manifest_response = requests.get(
+        f"https://play.google.com/books/volumes/{BOOK_ID}/manifest?hl=en&authuser=2&source=ge-web-app",
+        cookies=cookies,
+        headers=headers,
+    )
+    manifest_text = manifest_response.text
+    manifest = json.loads(manifest_text)
+    with open("manifest.json", "w") as manifest_file:
+        json.dump(manifest, manifest_file, indent=4)
+
+    if manifest.get("metadata", {}).get("preview") != "full":
+        logging.error(f"The server indicates that the book is in preview mode '{manifest.get('preview')}' (expected 'full'). This either means that you don't own the book on this account, or that your curl command is invalid/expired. Delete curl.txt and follow the instructions again!")
+
+    if not toc:
+        toc = manifest.get("toc_entry")
+        if toc:
+            logging.warning(
+                "Using the table of contents from the manifest as a fallback. Note that it's inferior because everything is flattened to the top level instead of having subchapters"
+            )
+        else:
+            logging.error("Error! Couldn't find the table of contents in the book manifest")
+
+    if toc:
+        with open("toc.json", "w") as toc_file:
+            json.dump(toc, toc_file, indent=4)
+        logging.info("Extracted the table of contents to toc.json")
+
+        try:
+            human_toc = "\n".join(
+                f"{'    ' * t['depth']}{unescape_html(t['label'])} ........".ljust(80,
+                                                                                   ".") + f" p.{t['page_index'] + 1}"
+                for t in toc
+            )
+            with open("toc.txt", "w") as human_toc_file:
+                human_toc_file.write(human_toc)
+            logging.info("Wrote human-readable table of contents to toc.txt")
+        except Exception as e:
+            logging.warning(
+                f"Warning: Couldn't produce a human-readable table of contents:\n{e}")
+
+    missing_pages = [p["pid"] for p in manifest["page"] if
+                     not p.get("src") or not isinstance(p["src"], str)]
+    missing = len(missing_pages)
+    total = len(manifest["page"])
+
+    if missing != 0:
+        missing_percent = f"{(missing / total):.2%}"
+        logging.error(
+            f"Error! Couldn't find a download link for {missing} pages ({missing_percent} missing, total: {total} pages).List of missing pages: [{', '.join(map(str, missing_pages))}]"
+        )
+
+    page_files = []
+
+    logging.info(f"Starting to download {total} pages…")
+
+    for i, page in enumerate(manifest["page"]):
+        p = f"{i + 1}/{total}"
+
+        pid, src = page.get("pid"), page.get("src")
+        if not src:
+            logging.error(f"[{p}] Skipped: download link for {pid} is missing…")
+            continue
+
+        try:
+            mimeType, buf_enc = download_page(src, cookies, headers)
+            buf = decrypt(buf_enc, aes_key)
+
+            ext = mime_to_ext(mimeType)
+            filename = f"{pid}.{ext}"
+            with open(filename, "wb") as file:
+                file.write(buf)
+
+            page_files.append(filename)
+
+            logging.info(f"[{p}] Saved to {filename}")
+        except Exception as e:
+            logging.error(f"[{p}] Error! Download or decrypt failed with {e}")
+
+        time.sleep(GOOGLE_PAGE_DOWNLOAD_PACER)  # Be gentle with Google Play Books
+
+    with open("pages.txt", "w") as pages_file:
+        pages_file.write("\n".join(page_files))
+
+    logging.info(
+        f'Finished. The pages that got successfully downloaded can be found in "{book_dir}".')
+
+def parse_curl_command(curl_command: str):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("url")
+    parser.add_argument("--header", "-H", action="append", dest="headers")
+    parser.add_argument("--cookie", "-b", action="append", dest="cookies")
+
+    [prog_name, *arg_list] = shlex.split(curl_command.strip())
+
+    if prog_name != "curl":
+        raise ValueError(f"Invalid curl command in curl.txt. The program name should be 'curl' but in the command it is: {prog_name}. Make sure you followed the instructions properly!")
+
+    args, _ = parser.parse_known_args(arg_list)
+
+    url = urlparse(args.url)
+
+    headers = {}
+    if args.headers:
+        for header in args.headers:
+            key, value = header.split(":", 1)
+            headers[key.strip()] = value.strip()
+
+    cookies = {}
+    if args.cookies:
+        for cookie in args.cookies:
+            cookie_parts = cookie.split(";")
+            for cookie in cookie_parts:
+                if "=" in cookie:
+                    key, value = cookie.split("=", 1)
+                    cookies[key.strip()] = value.strip()
+                else:
+                    logging.warning(f"Invalid cookie (no assigment): {cookie}")
+
+    return url, cookies, headers
 
 def unescape_html(text):
     return re.sub(r"&#(\d+);", lambda m: chr(int(m.group(1))), text)
@@ -83,12 +228,6 @@ def decipher_key(str_data):
     return bytes(key)
 
 
-aes_key = extract_decryption_key(body)
-with open("aes_key.bin", "wb") as key_file:
-    key_file.write(aes_key)
-logging.info(f"Found AES decryption key: [{aes_key.hex()}]")
-
-
 def extract_toc(google_reader_body):
     try:
         toc_data = re.search(r'"toc_entry":\s*(\[[\s\S]*?}\s*])',
@@ -107,62 +246,7 @@ def extract_toc(google_reader_body):
         return None
 
 
-toc = extract_toc(body)
-
-manifest_response = requests.get(
-    f"https://play.google.com/books/volumes/{BOOK_ID}/manifest?hl=en&authuser=2&source=ge-web-app",
-    cookies=cookies,
-    headers=headers,
-)
-manifest_text = manifest_response.text
-manifest = json.loads(manifest_text)
-with open("manifest.json", "w") as manifest_file:
-    json.dump(manifest, manifest_file, indent=4)
-
-if not toc:
-    toc = manifest.get("toc_entry")
-    if toc:
-        logging.warning(
-            "Using the table of contents from the manifest as a fallback. Note that it's inferior because everything is flattened to the top level instead of having subchapters"
-        )
-    else:
-        logging.error("Error! Couldn't find the table of contents in the book manifest")
-
-if toc:
-    with open("toc.json", "w") as toc_file:
-        json.dump(toc, toc_file, indent=4)
-    logging.info("Extracted the table of contents to toc.json")
-
-    try:
-        human_toc = "\n".join(
-            f"{'    ' * t['depth']}{unescape_html(t['label'])} ........".ljust(80,
-                                                                               ".") + f" p.{t['page_index'] + 1}"
-            for t in toc
-        )
-        with open("toc.txt", "w") as human_toc_file:
-            human_toc_file.write(human_toc)
-        logging.info("Wrote human-readable table of contents to toc.txt")
-    except Exception as e:
-        logging.warning(
-            f"Warning: Couldn't produce a human-readable table of contents:\n{e}")
-
-missing_pages = [p["pid"] for p in manifest["page"] if
-                 not p.get("src") or not isinstance(p["src"], str)]
-missing = len(missing_pages)
-total = len(manifest["page"])
-
-if missing != 0:
-    missing_percent = f"{(missing / total):.2%}"
-    logging.error(
-        f"Error! Couldn't find a download link for {missing} pages ({missing_percent} missing, total: {total} pages). Make sure that the FETCH_OPTIONS object is valid and that you own the book. List of missing pages: [{', '.join(map(str, missing_pages))}]"
-    )
-
-page_files = []
-
-logging.info(f"Starting to download {total} pages…")
-
-
-def download_page(src):
+def download_page(src, cookies, headers):
     url_parts = list(urlparse(src))
     query = parse_qs(url_parts[4])
     query.update(
@@ -187,7 +271,7 @@ def download_page(src):
     return mimeType, buffer
 
 
-def decrypt(buf):
+def decrypt(buf, aes_key):
     iv = buf[:16]
     data = buf[16:]
 
@@ -213,33 +297,5 @@ def mime_to_ext(mime):
     return lookup.get(mime, "unk")
 
 
-for i, page in enumerate(manifest["page"]):
-    p = f"{i + 1}/{total}"
-
-    pid, src = page.get("pid"), page.get("src")
-    if not src:
-        logging.error(f"[{p}] Skipped: download link for {pid} is missing…")
-        continue
-
-    try:
-        mimeType, buf_enc = download_page(src)
-        buf = decrypt(buf_enc)
-
-        ext = mime_to_ext(mimeType)
-        filename = f"{pid}.{ext}"
-        with open(filename, "wb") as file:
-            file.write(buf)
-
-        page_files.append(filename)
-
-        logging.info(f"[{p}] Saved to {filename}")
-    except Exception as e:
-        logging.error(f"[{p}] Error! Download or decrypt failed with {e}")
-
-    time.sleep(GOOGLE_PAGE_DOWNLOAD_PACER)  # Be gentle with Google Play Books
-
-with open("pages.txt", "w") as pages_file:
-    pages_file.write("\n".join(page_files))
-
-logging.info(
-    f'Finished. The pages that got successfully downloaded can be found in "{book_dir}".')
+if __name__ == "__main__":
+    main()
