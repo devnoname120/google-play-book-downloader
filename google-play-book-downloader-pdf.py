@@ -15,8 +15,6 @@ from Cryptodome.Cipher import AES
 
 GOOGLE_PAGE_DOWNLOAD_PACER = 0.5  # Wait between requests to reduce risk of getting flagged for abuse.
 
-# 5) Right-click on the first request (it should appear as segment?authuser=0&xxxxxxxxx) in the dev console and then "Copy as cURL".
-# 6) Paste it here
 
 def main():
     BOOK_ID = input("Type your book ID and press enter: ")
