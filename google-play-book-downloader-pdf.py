@@ -13,7 +13,7 @@ import argparse
 from urllib.parse import urlparse, urlencode, urlunparse, parse_qs
 from Cryptodome.Cipher import AES
 
-GOOGLE_PAGE_DOWNLOAD_PACER = 0.5  # Wait between requests to reduce risk of getting flagged for abuse.
+GOOGLE_PAGE_DOWNLOAD_PACER = 0.1  # Wait between requests to reduce risk of getting flagged for abuse.
 
 
 def main():
