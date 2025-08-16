@@ -7,7 +7,6 @@ import re
 import requests
 import base64
 import logging
-import shlex
 import argparse
 
 from urllib.parse import urlparse, urlencode, urlunparse, parse_qs
@@ -18,6 +17,9 @@ GOOGLE_PAGE_DOWNLOAD_PACER = 0.1  # Wait between requests to reduce risk of gett
 
 def main():
     BOOK_ID = input("Type your book ID and press enter: ")
+
+    logging.basicConfig(level=logging.INFO,
+                        format="[%(asctime)s] %(levelname)s: %(message)s")
 
     try:
         with open("curl.txt", "r") as f:
@@ -42,8 +44,6 @@ def main():
     if url.netloc != "play.google.com":
         raise ValueError(f"Invalid curl command in curl.txt. The domain name should be to 'play.google.com' but in the command it is: {url.netloc}")
 
-    logging.basicConfig(level=logging.INFO,
-                        format="[%(asctime)s] %(levelname)s: %(message)s")
 
     logging.info(f"Script started for book id: {BOOK_ID}")
 
@@ -150,28 +150,54 @@ def main():
         f'Finished. The pages that got successfully downloaded can be found in "{book_dir}".')
 
 def parse_curl_command(curl_command: str):
+    # Windows cmd.exe use ^ as an escape character, so browsers put them when copying a request as cURL which breaks our command parsing
+    # See: https://github.com/devnoname120/google-play-book-downloader/issues/28#issuecomment-3192839244
+    def is_likely_cmd_exe_command(cmd: str):
+        return re.search(r'\\^$', cmd, re.MULTILINE) or '^\\^"' in cmd or '^"^' in cmd
+
+    if is_likely_cmd_exe_command(curl_command):
+        logging.info(f"The command in curl.txt seems to be for Windows cmd.exe (normal if you copied it from your browser running on Windows)")
+        import mslex
+        def normalize_windows_cmd_caret(s: str) -> str:
+            s = s.replace("\r\n", "\n").strip()
+            s = re.sub(r"\s*\^\s*\n\s*", " ", s)
+            s = re.sub(r"\^(.)", r"\1", s)
+            return s
+        try:
+            [prog_name, *arg_list] = mslex.split(normalize_windows_cmd_caret(curl_command))
+        except ValueError:
+            logging.warning(f'Failed to parse curl.txt as a Windows command! Will try again assuming it\'s a command for Linux/macOS shells (NOT normal unless you used the option "Copy as cURL (bash)")')
+            import shlex
+            [prog_name, *arg_list] = shlex.split(curl_command.strip())
+    else:
+        logging.info(f'curl.txt seems to be for Linux/macOS shells (normal if copied on these OSs, or from Windows using the option "Copy as cURL (bash)")')
+        import shlex
+        [prog_name, *arg_list] = shlex.split(curl_command.strip())
+
+    if prog_name != "curl":
+        raise ValueError(f"Invalid curl command in curl.txt. The program name should be 'curl' but in the command it is: {prog_name}. Make sure you followed the instructions properly!")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("url")
     parser.add_argument("--header", "-H", action="append", dest="headers")
     parser.add_argument("--cookie", "-b", action="append", dest="cookies")
-
-    [prog_name, *arg_list] = shlex.split(curl_command.strip())
-
-    if prog_name != "curl":
-        raise ValueError(f"Invalid curl command in curl.txt. The program name should be 'curl' but in the command it is: {prog_name}. Make sure you followed the instructions properly!")
 
     args, _ = parser.parse_known_args(arg_list)
 
     url = urlparse(args.url)
 
     headers = {}
-    if args.headers:
+    if not args.headers:
+        logging.warning(f"No headers detected in curl.txt! You likely didn't properly copy the cURL request to curl.txt")
+    else:
         for header in args.headers:
             key, value = header.split(":", 1)
             headers[key.strip()] = value.strip()
 
     cookies = {}
-    if args.cookies:
+    if not args.cookies:
+        logging.error(f"No cookies detected in curl.txt! You didn't properly copy the cURL request to curl.txt so the book will not be able to download correctly")
+    else:
         for cookie in args.cookies:
             cookie_parts = cookie.split(";")
             for cookie in cookie_parts:
