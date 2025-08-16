@@ -30,7 +30,7 @@ def main():
 2) Open dev console, network tab.
 3) Click on the book you want to read (the link should have the format https://play.google.com/books/reader?id=xxxxxxxxxx)
 4) In the network tab of the dev console type "segment" (without the quotes) in the filter box.
-5) Right-click on the first request (it should appear as segment?authuser=0&xxxxxxxxx) in the dev console and then "Copy as cURL".
+5) Right-click on the first request (it should appear as segment?authuser=0&xxxxxxxxx) in the dev console and then click on "Copy as cURL", or "Copy as cURL (bash)", or "Copy as cURL (POSIX)" whichever appears (the name of this option depends on your browser and OS).
 6) Create the file curl.txt and paste it inside\n""")
         raise FileNotFoundError("curl.txt file not found. Please create it and put the curl command from the browser.")
     except IOError as e:
