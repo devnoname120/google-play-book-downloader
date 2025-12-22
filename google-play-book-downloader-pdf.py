@@ -194,11 +194,18 @@ def parse_curl_command(curl_command: str):
             key, value = header.split(":", 1)
             headers[key.strip()] = value.strip()
 
+    cookies_unparsed = args.cookies
     cookies = {}
-    if not args.cookies:
+    if "Cookie" in headers:
+        if args.cookies:
+            logging.warning(f"Cookies appear in both --cookie argument and headers, check the cURL request in curl.txt")
+            cookies_unparsed.append(headers["Cookie"])
+        else:
+            cookies_unparsed = [headers["Cookie"]]
+    if not cookies_unparsed:
         logging.error(f"No cookies detected in curl.txt! You didn't properly copy the cURL request to curl.txt so the book will not be able to download correctly")
     else:
-        for cookie in args.cookies:
+        for cookie in cookies_unparsed:
             cookie_parts = cookie.split(";")
             for cookie in cookie_parts:
                 if "=" in cookie:
