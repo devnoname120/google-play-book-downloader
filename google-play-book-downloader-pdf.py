@@ -196,6 +196,7 @@ def parse_curl_command(curl_command: str):
 
     cookies_raw = args.cookies or []
     cookies = {}
+    # Firefox puts the cookies in the headers directly instead of using curl's --cookies/-b parameters
     if "Cookie" in headers:
         if cookies_raw:
             logging.warning(f"Cookies appear in both --cookie argument and headers, check the cURL request in curl.txt")
