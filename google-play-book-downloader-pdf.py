@@ -201,7 +201,7 @@ def parse_curl_command(curl_command: str):
         if cookies_raw:
             logging.warning(f"Cookies appear in both --cookie argument and headers, check the cURL request in curl.txt")
         cookies_raw.append(headers["Cookie"])
-    
+
     if not cookies_raw:
         logging.error(f"No cookies detected in curl.txt! You didn't properly copy the cURL request to curl.txt so the book will not be able to download correctly")
     else:
