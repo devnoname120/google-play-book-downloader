@@ -194,11 +194,18 @@ def parse_curl_command(curl_command: str):
             key, value = header.split(":", 1)
             headers[key.strip()] = value.strip()
 
+    cookies_raw = args.cookies or []
     cookies = {}
-    if not args.cookies:
+    # Firefox puts the cookies in the headers directly instead of using curl's --cookies/-b parameters
+    if "Cookie" in headers:
+        if cookies_raw:
+            logging.warning(f"Cookies appear in both --cookie argument and headers, check the cURL request in curl.txt")
+        cookies_raw.append(headers["Cookie"])
+
+    if not cookies_raw:
         logging.error(f"No cookies detected in curl.txt! You didn't properly copy the cURL request to curl.txt so the book will not be able to download correctly")
     else:
-        for cookie in args.cookies:
+        for cookie in cookies_raw:
             cookie_parts = cookie.split(";")
             for cookie in cookie_parts:
                 if "=" in cookie:
