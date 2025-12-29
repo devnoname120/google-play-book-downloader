@@ -112,17 +112,6 @@ def fetch_segment(url):
     return response
 
 
-# Firefox puts the cookies in the headers directly instead of using curl's --cookies/-b parameters
-if "Cookie" in headers:
-    if cookies:
-        logging.warning(f"Cookies appear in both --cookie argument and headers, check the cURL request in curl.txt")
-    cookie_header = headers["Cookie"]
-    cookie_parts = cookie_header.split(";")
-    for cookie in cookie_parts:
-        if "=" in cookie:
-            key, value = cookie.split("=", 1)
-            cookies[key.strip()] = value.strip()
-
 book_dir = f"books/{BOOK_ID}"
 os.makedirs(book_dir, exist_ok=True)
 os.chdir(book_dir)
